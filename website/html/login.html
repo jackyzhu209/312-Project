@@ -1,0 +1,78 @@
+<!doctype html>
+
+<head>
+    <title>Log In</title>
+    <link rel="stylesheet" type="text/css" href="../css/main.css" />
+</head>
+
+<body>
+    <a href="../index.html">
+        <center><img src="../images/logo.png" align="bottom" style="width:400px;height:200px;"> </center>
+    </a>
+    <!--Tab links-->
+    <hr>
+    <div class="tab">
+        <button class="tablinks" onclick="location.href='../index.html'">Home</button>
+        <button class="tablinks" onclick="location.href='../html/login.html'">Login</button>
+        <button class="tablinks" onclick="location.href='../html/projects.html'">Projects</button>
+        <button class="tablinks" onclick="location.href='../html/users.html'">Users</button>
+        <button class="tablinks" onclick="location.href='../html/about.html'">About</button>
+    </div>
+     <div class="container">
+     	<form action ="/loginuser" id="login-form" method="post" enctype="multipart/form-data">
+		    <label for="login-user-name"><b>Username</b></label>
+		    <br>
+		    <input id="login-user-name" type="text" placeholder="Enter Username" name="loginusername" required>
+		    <br>
+		    <label for="login-user-pass"><b>Password</b></label>
+		    <br>
+		    <input id="login-user-pass" type="password" placeholder="Enter Password" name="loginuserpass" required>
+		    <button type="submit" value="Submit">Login</button>
+		</form>
+	    <!-- Link to FORGOT PASSWORD modal -->
+		<a id="forgotPass">Forgot password?</a>
+		<!-- The Modal -->
+		<div id="modal_forgotPass" class="modal">
+		  <!-- Modal content -->
+		  <div class="modal-content">
+		    <span class="close">&times;</span>
+		    <p>forgot password stuff here</p>
+		  </div>
+		</div>
+		<br>
+	    <!-- Link to CREATE ACCOUNT modal -->
+		<a id="createAccount">No account? Create one.</a>
+		<!-- The Modal -->
+		<div id="modal_createAccount" class="modal">
+		  <!-- Modal content -->
+		  <div class="modal-content">
+		    <span class="close">&times;</span>
+			<div class="container">
+				<form action ="/enternewuser" id="enter-newuser-form" method="post" enctype="multipart/form-data">
+				    <label for="enter-newuser-name"><b>Username</b></label>
+				    <br>
+				    <input id="enter-newuser-name" type="text" placeholder="Enter New Username" name="enternewuser" required>
+				    <br>
+				    <label for="enter-newuser-pass"><b>Password</b></label>
+				    <br>
+				    <input id="enter-newuser-pass" type="text" placeholder="Enter New Password" name="enternewpass" required>
+				    <br>
+					<label for="confirm-newuser-pass"><b>Re-enter Password</b></label>
+				    <br>
+				    <input id="confirm-newuser-pass" type="text" placeholder="Confirm New Password" name="confirmnewpass" required>
+				    <button type="submit" value="Submit">Submit</button>
+				</form>
+			</div>
+		  </div>
+		</div>
+
+  	</div>
+
+
+    <hr>
+    <!--scripts-->
+    <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>-->
+    <script type="text/javascript" src="../src/js/login.js"></script>
+</body>
+
+</html>
