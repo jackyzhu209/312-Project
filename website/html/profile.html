@@ -37,6 +37,16 @@
 			<input id="email" type="email" placeholder="Contact Email" name="contact_email" require="">
 		<br>
 		</div>
+		<div class="profile-image">
+			<form action="/image-upload" id="image-form" method="post" enctype="multipart/form-data">
+			    <label for="form-file">{{profile picture}}: </label>
+			    <input id="form-file" type="file" name="upload">
+			    <br/>
+			    <label for="image-form-name">{{caption}}: </label>
+			    <input id="image-form-name" type="text" name="name">
+			    <input type="submit" value="Submit">
+			</form>
+	    	</div>
 		<div class="form-info">
 			<label for="login-user-pass"><b>Password</b></label>
 			<br>
