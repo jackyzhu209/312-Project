@@ -10,6 +10,23 @@ def html_header(filename):
     f.close()
     return header.encode()
 
+def byteResponse(body):
+    responseBody = bytearray(b'')
+    for values in body:
+        if isinstance(values, str):
+            value = values.encode()      
+            responseBody = responseBody + value
+        else:            
+            responseBody += values
+            responseBody += b'\r\n'
+    header = "HTTP/1.1 200 OK\r\n"
+    header += "Content-Type: image/jpeg\r\n"
+    header += "Content-Length: " + str(len(responseBody)) + "\r\n"
+    header += "X-Content-Type-Options: nosniff\r\n\r\n" 
+    header = bytearray(header.encode())
+    header += responseBody
+    return header
+
 # creates javascript response
 def js_header(filename):
     f = open(filename, 'r')
