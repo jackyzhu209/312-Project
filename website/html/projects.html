@@ -19,24 +19,7 @@
         <button class="tablinks" onclick="location.href='../html/about.html'">About</button>
     </div>
     <div class="projects">
-        <!--project descriptions-->
-        <form action="/comment" id="comment-form" method="post" enctype="multipart/form-data">
-            <label for="text-form-name">Project Details: </label>
-            <input id="text-form-name" type="text" name="name"><br/>
-            <label for="form-comment">{{project description}}: </label>
-            <input id="form-comment" type="text" name="comment">
-            <input type="submit" value="Submit">
-        </form>
-        <hr>
-        <!--upload an image -->
-        <form action="/image-upload" id="image-form" method="post" enctype="multipart/form-data">
-            <label for="form-file">{{image}}: </label>
-            <input id="form-file" type="file" name="upload">
-            <br/>
-            <label for="image-form-name">{{caption}}: </label>
-            <input id="image-form-name" type="text" name="name">
-            <input type="submit" value="Submit">
-        </form>
+        <button class="post" onclick="location.href='../html/create.html'">Create Project</button>
     </div>
     <hr>
     <!--scripts-->
