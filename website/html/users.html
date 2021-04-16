@@ -9,6 +9,7 @@
     <a href="../index.html">
         <center><img src="../images/logo.png" align="bottom" style="width:400px;height:200px;"> </center>
     </a>
+    <b style="position:relative; left: 1100px;">{{loggedin_temp}}</b>
     <!--Tab links-->
     <hr>
     <div class="tab">
@@ -18,9 +19,52 @@
         <button class="tablinks" onclick="location.href='../html/users.html'">Users</button>
         <button class="tablinks" onclick="location.href='../html/about.html'">About</button>
     </div>
-    users
+    
+    <div class=allmembers>
+        Members List
+        <ul id="alluserslist" style="overflow-y: scroll; height: 200px; width: 190px;">
+            <li>User 1 <button id="User 1" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 2 <button id="User 2" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 3 <button id="User 3" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 4 <button id="User 4" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 5 <button id="User 5" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 6 <button id="User 6" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 7 <button id="User 7" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 8 <button id="User 8" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 9 <button id="User 9" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 10 <button id="User 10" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+        </ul>  
+    </div>
+    
+    <div class=membersonline>
+        Currently Online
+        <ul id="onlineuserslist" style="overflow-y: scroll; height: 200px; width: 190px;">
+            <li>User 1 <button id="User 1" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 2 <button id="User 2" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 3 <button id="User 3" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 4 <button id="User 4" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 5 <button id="User 5" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 6 <button id="User 6" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 7 <button id="User 7" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 8 <button id="User 8" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 9 <button id="User 9" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+            <li>User 10 <button id="User 10" class="messagebutton" onclick="openChat(this.id)">Message</button></li>
+        </ul>  
+    </div>
+    
+    
+    <div class="chat-popup" id="dmBox">
+      <div class="chat-box">
+        <div id="chatTarget">Chat@Placeholder</div>
+        <label for="messages"><b>Messages</b></label>
+        <textarea readonly name="messages"></textarea>
+        <input id="enter-dm-msg" type="text" placeholder="Enter Message" name="outgoingchat" required>
+        <button onclick="sendDM()">Send</button>
+        <button onclick="closeChat()">Close</button>
+      </div>
+    </div>
 
-
+    
     <hr>
     <!--scripts-->
     <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>-->
