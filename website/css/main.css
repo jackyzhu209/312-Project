@@ -60,9 +60,6 @@ a:active {
 }
 /* END of tablinks stuff */
 
-
-<<<<<<< HEAD
-
 .container {
   display: grid;
   grid-template-columns: 1fr;
@@ -98,7 +95,7 @@ a:active {
 .about-content-wrapper h1 {
   color: lightseagreen;
 }
-=======
+
 /* Projects page divs */
 .projectuploader {
   position: absolute;
@@ -178,5 +175,3 @@ a:active {
   min-height: 200px;
 }
 /* end of chatbox stuff */
-
->>>>>>> a06bae917ec24c9f5aaa9e683a0549b44e65d976
