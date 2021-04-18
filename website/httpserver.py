@@ -77,6 +77,13 @@ def entryQuery(qtype, entry):
         if account.count() == 0:
             profiles.insert(json.dumps(entry))
             return True
+    elif qtype == "online":
+        onlineUsers = []
+        account = profiles.find()
+        for users in account:
+            if json.loads(users[online]):
+                onlineUsers.append(users)
+        return onlineUsers
     return False
             
 
@@ -102,7 +109,7 @@ class server(http.server.SimpleHTTPRequestHandler):
             elif path == "/loginuser":
                 name = data["loginusername"]
                 pwd = data["loginuserpass"]
-                entry = {"name": name, "pwd": pwd}
+                entry = {"name": name, "pwd": pwd, "online": True}
                 exists = entryQuery("login", entry) #deal with front end warning depending on the boolean value, false means credentials dont exist or are wrong
             elif path == "/uploadproject":            
                 image = data["enterprojectname"]
