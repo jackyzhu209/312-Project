@@ -69,12 +69,10 @@ def pathLocation(path, self):
 #if login query, checks credentials, if insert, checks if username exists and if not insert to DB
 def entryQuery(qtype, entry):    
     if qtype == "login":
-        account = profiles.find({"name": { $eq: entry["name"]}, "pwd": { $eq: entry["pwd"]}})
-        if account.count() != 0:
+        if profiles.count_documents({"name": entry["name"], "pwd": entry["pwd"]}) != 0:
             return True
     elif qtype == "insert":
-        account = profiles.find({"name": { $eq: entry["name"]}})
-        if account.count() == 0:
+        if profiles.count_documents({"name": entry["name"]}) == 0:
             profiles.insert(json.dumps(entry))
             return True
     elif qtype == "online":
