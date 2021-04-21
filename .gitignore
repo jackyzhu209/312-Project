@@ -1,3 +1,4 @@
 **/.DS_Store
 .vscode/settings.json
 website/test_websockify.py
+website/.vscode/settings.json
