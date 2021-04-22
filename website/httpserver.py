@@ -6,7 +6,7 @@ import json
 
 PORT = 8000
 HOST = "0.0.0.0"
-mongoclient = pymongo.MongoClient("mongodb://localhost:27017/")
+mongoclient = pymongo.MongoClient("mongo")
 storedUsers = mongoclient["users"]
 profiles = storedUsers["profiles"]
 projects = storedUsers["projects"]
@@ -14,6 +14,7 @@ projects = storedUsers["projects"]
 postFormat = '<div class="post"><hr>Project Name: Project1<b style="position:relative; left: 480px;">Rating: 7 <button style="background-color:green">&#x1F44D;</button><button style="background-color:red">&#x1F44E;</button></b><br><img src="../images/test.png" style="width:400px;height:200px;"><br>Description:<br>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.<br><br><small>By: User1</small></div>'
 
 def readFile(filename, type):
+    filename = filename.replace("%20", " ")
     fileContent = None
     file = open(filename, "r") if type == "str" else open(filename, "rb")
     fileContent = file.read()
@@ -134,14 +135,32 @@ class server(http.server.SimpleHTTPRequestHandler):
                 pwd = data["enternewpass"]
                 entry = {"name": name, "pwd": pwd}
                 inserted = entryQuery("insert", entry) #deal with front end warning depending on the boolean value, false means username already exists and cannot be duplicated
-                sendRedirect(self,"/html/login.html")
+                if inserted:
+                    sendRedirect(self,"/html/login.html")
+                else:
+                    response = "Username Is Taken"
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain")
+                    self.send_header("Content-Length", str(len(response)))
+                    self.send_header("X-Content-Type-Options", "nosniff")
+                    self.end_headers()
+                    self.wfile.write(response)
             elif path == "/loginuser":
                 data = cgi.parse_multipart(self.rfile, boundary)
                 name = data["loginusername"]
                 pwd = data["loginuserpass"]
                 entry = {"name": name, "pwd": pwd, "online": True}
                 exists = entryQuery("login", entry) #deal with front end warning depending on the boolean value, false means credentials dont exist or are wrong
-                sendRedirect(self, "/html/projects.html")
+                if exists:                    
+                    sendRedirect(self, "/html/projects.html")
+                else:
+                    response = "Login Information Is Incorrect"
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain")
+                    self.send_header("Content-Length", str(len(response)))
+                    self.send_header("X-Content-Type-Options", "nosniff")
+                    self.end_headers()
+                    self.wfile.write(response)
             elif path == "/uploadproject": #parse manually for filename, add to database, redirect to project.html | associated filename with project index number, write file to directory (images/projectImages/filename)
                 fileData = self.rfile.read(length)
                 fileData = fileData.split(b'--' + self.headers.get_boundary().encode())
