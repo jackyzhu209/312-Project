@@ -128,7 +128,7 @@ class server(http.server.SimpleHTTPRequestHandler):
         length = int(self.headers.get("Content-Length"))
         isMultipart = True if "multipart/form-data" in self.headers.get("Content-Type") else False
         if isMultipart:
-            boundary = {'boundary': self.headers.get_boundary().encode()}            
+            boundary = {'boundary': self.headers.get_boundary().encode(), "CONTENT-LENGTH": length}            
             if path == "/enternewuser":
                 data = cgi.parse_multipart(self.rfile, boundary)
                 name = data["enternewuser"]
@@ -144,7 +144,7 @@ class server(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Content-Length", str(len(response)))
                     self.send_header("X-Content-Type-Options", "nosniff")
                     self.end_headers()
-                    self.wfile.write(response)
+                    self.wfile.write(response.encode())
             elif path == "/loginuser":
                 data = cgi.parse_multipart(self.rfile, boundary)
                 name = data["loginusername"]
@@ -160,7 +160,7 @@ class server(http.server.SimpleHTTPRequestHandler):
                     self.send_header("Content-Length", str(len(response)))
                     self.send_header("X-Content-Type-Options", "nosniff")
                     self.end_headers()
-                    self.wfile.write(response)
+                    self.wfile.write(response.encode())
             elif path == "/uploadproject": #parse manually for filename, add to database, redirect to project.html | associated filename with project index number, write file to directory (images/projectImages/filename)
                 fileData = self.rfile.read(length)
                 fileData = fileData.split(b'--' + self.headers.get_boundary().encode())
