@@ -9,7 +9,7 @@
     <a href="../index.html">
         <center><img src="../images/logo.png" align="bottom" style="width:400px;height:200px;"> </center>
     </a>
-    <b style="position:relative; left: 1100px;">{{loggedin_temp}}</b>
+    <b style="position:relative; left: 10px;">{{loggedin_temp}}</b>
 
     <!--Tab links-->
     <hr>
@@ -19,9 +19,19 @@
         <button class="tablinks" onclick="location.href='../html/projects.html'">Projects</button>
         <button class="tablinks" onclick="location.href='../html/users.html'">Users</button>
         <button class="tablinks" onclick="location.href='../html/about.html'">About</button>
+        <button {{hideornot}} class="tablinks" onclick="location.href='../html/profile.html'">My Profile</button>
+    </div>
+
+    <div class="projectlist">
+        {{projectslist}}
+        <!--
+        <div class="post"><hr>Project Name: Project1<b style="position:relative; left: 480px;">Rating: 7 <button style="background-color:green">&#x1F44D;</button><button style="background-color:red">&#x1F44E;</button></b><br><img src="../images/test.png" style="width:400px;height:200px;"><br>Description:<br>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.<br><br><small>By: User1</small></div>
+        -->
+        
+        <hr>
     </div>
     
-    <div class="projectuploader">
+    <div class="projectuploader" {{hideornot}}>
         <b>Upload a project!</b>
         <br><br>
         <form action ="/uploadproject" id="upload-project-form" method="post" enctype="multipart/form-data">
@@ -35,18 +45,10 @@
             <br>
             <label for="upload-project-image"><b>Image</b></label>
             <br>
-            <input id="upload-project-image" type="file" name="uploadprojectimage">
+            <input id="upload-project-image" type="file" name="uploadprojectimage" required>
             <br><br>
             <button type="submit" value="Submit">Upload Project</button>
         </form>
-    </div>
-    
-    <div class="projectlist">              
-        <div class="post"><hr>Project Name: Project1<b style="position:relative; left: 480px;">Rating: 7 <button style="background-color:green">&#x1F44D;</button><button style="background-color:red">&#x1F44E;</button></b><br><img src="../images/test.png" style="width:400px;height:200px;"><br>Description:<br>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.<br><br><small>By: User1</small></div>
-        <div class="post"><hr>Project Name: Project1<b style="position:relative; left: 480px;">Rating: 7 <button style="background-color:green">&#x1F44D;</button><button style="background-color:red">&#x1F44E;</button></b><br><img src="../images/test.png" style="width:400px;height:200px;"><br>Description:<br>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.<br><br><small>By: User1</small></div>
-        <div class="post"><hr>Project Name: Project1<b style="position:relative; left: 480px;">Rating: 7 <button style="background-color:green">&#x1F44D;</button><button style="background-color:red">&#x1F44E;</button></b><br><img src="../images/test.png" style="width:400px;height:200px;"><br>Description:<br>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.<br><br><small>By: User1</small></div>
-        
-        <hr>
     </div>
     
     <hr>

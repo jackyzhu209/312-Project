@@ -3,6 +3,11 @@ import socketserver
 import cgi
 import pymongo
 import json
+import bcrypt
+import secrets
+from datetime import datetime, timedelta
+import helperFunction as helper
+
 
 PORT = 8000
 HOST = "0.0.0.0"
@@ -10,6 +15,7 @@ mongoclient = pymongo.MongoClient("mongo")
 storedUsers = mongoclient["users"]
 profiles = storedUsers["profiles"]
 projects = storedUsers["projects"]
+online_users = storedUsers["online"]
 
 postFormat = '<div class="post"><hr>Project Name: Project1<b style="position:relative; left: 480px;">Rating: 7 <button style="background-color:green">&#x1F44D;</button><button style="background-color:red">&#x1F44E;</button></b><br><img src="../images/test.png" style="width:400px;height:200px;"><br>Description:<br>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.<br><br><small>By: User1</small></div>'
 
@@ -94,27 +100,93 @@ def sendRedirect(self, path):
     self.end_headers()
 
 
-#if login query, checks credentials, if insert, checks if username exists and if not insert to DB
-def entryQuery(qtype, entry):    
-    if qtype == "login":
-        if profiles.count_documents({"name": entry["name"], "pwd": entry["pwd"]}) != 0:
-            return True
-    elif qtype == "insert":
-        if profiles.count_documents({"name": entry["name"]}) == 0:
-            profiles.insert_one(entry)
-            return True
-    elif qtype == "online":
-        onlineUsers = []
-        account = profiles.find()
-        for users in account:
-            if json.loads(users["online"]):
-                onlineUsers.append(users)
-        return onlineUsers
-    elif qtype == "upload":
-        projects.insert_one(entry)
-        return True
-    return False
+
+
+def postPathing(self, path, length, isMultipart, boundary):
+    if isMultipart:
+        boundary = {'boundary': self.headers.get_boundary().encode(), "CONTENT-LENGTH": length}            
+        if path == "/enternewuser":
+            data = cgi.parse_multipart(self.rfile, boundary)
+            name = data["enternewuser"]
+            pwd = data["enternewpass"]
+            repwd = data["confirmnewpass"]
+            entry = {"name": name, "pwd": pwd}
+            inserted = entryQuery("insert", entry) #deal with front end warning depending on the boolean value, false means username already exists and cannot be duplicated
+
+            if pwd != rePwd:
+                self.serve_htmltext_and_goto(None,'<h1>The passwords do not match. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                return            
+            if name == pwd:
+                self.serve_htmltext_and_goto(None,'<h1>You cant pick a password equal to your username. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                return
+            if db.user_accounts.find_one({"account": name}) != None:
+                name = name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
+                self.serve_htmltext_and_goto(None,'<h1>The account name ['+name+'] is already in use. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                return
+            if len(pwd.decode()) < 8:
+                self.serve_htmltext_and_goto(None,'<h1>The password did not meet the required length(>=8). Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                return
             
+            pass_salt = bcrypt.gensalt()
+            hashed_pass = bcrypt.hashpw(new_pass, pass_salt)
+            hashed_token =  bcrypt.hashpw(str(secrets.token_hex(16)).encode(), pass_salt)
+            new_account = {
+                    'account': name,                    
+                    'pass'   : hashed_pass,
+                    'token'  : hashed_token,
+                    'bio'    : 'Empty bio'
+                }
+            profiles.insert_one(new_account)
+            new_username = name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
+            self.serve_htmltext_and_goto(None,'<h1>Account created: '+new_username+'</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+
+
+        elif path == "/loginuser":
+            data = cgi.parse_multipart(self.rfile, boundary)
+            name = data["loginusername"]
+            pwd = data["loginuserpass"]
+                        
+            retrieved_account = profiles.find_one({"account": login_username})
+            
+            if retrieved_account == None:
+                name = name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
+                self.serve_htmltext_and_goto(None,'<h1>Login failed: The account['+login_username+'] does not exist. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                return
+
+            retrieved_pass = retrieved_account['pass']
+
+            if not bcrypt.checkpw(pwd, retrieved_account):
+                login_username = name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
+                login_pass = pwd.replace('&','&amp').replace('<','&lt').replace('>','&gt')
+                self.serve_htmltext_and_goto(None,'<h1>Login failed: The password['+login_pass+'] is incorrect for the account['+login_username+']. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                return
+
+            retrieved_token = retrieved_account['token']
+
+            '''NOTE: Accounts stay logged in for up to 10 minutes of idle time, timer is reset upon any recieved request'''
+            online_users.create_index("date", expireAfterSeconds=600)
+            new_online_user = {
+                                    'account':login_username,
+                                    'date':datetime.utcnow()
+                                }
+            online_users.insert_one(new_online_user)
+        
+            login_username = name.replace(b'&',b'&amp').replace(b'<',b'&lt').replace(b'>',b'&gt')
+            self.serve_htmltext_and_goto(retrieved_token,'<h1>You successfully logged in as: '+login_username+'</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+
+        elif path == "/uploadproject": #parse manually for filename, add to database, redirect to project.html | associated filename with project index number, write file to directory (images/projectImages/filename)
+            fileData = self.rfile.read(length)
+            fileData = fileData.split(b'--' + self.headers.get_boundary().encode())
+            nameSection = fileData[1].split(b'\r\n\r\n')[1].strip(b'\r\n').decode()
+            descSection = fileData[2].split(b'\r\n\r\n')[1].strip(b'\r\n').decode()     
+            imageSection = fileData[3].split(b'\r\n\r\n')
+            imageName = imageSection[0].split(b'\r\n')[1].split(b'filename=')[1].strip(b'"').decode()
+            imageData = imageSection[1]
+            with open("images/projectImages/" + imageName, "wb") as imageFile:
+                imageFile.write(imageData)
+            entry = {"name": nameSection, "desc": descSection, "img": imageName}
+            entryQuery("upload", entry)
+            sendRedirect(self, "/html/projects.html")
 
 class server(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -127,53 +199,7 @@ class server(http.server.SimpleHTTPRequestHandler):
         path = self.path
         length = int(self.headers.get("Content-Length"))
         isMultipart = True if "multipart/form-data" in self.headers.get("Content-Type") else False
-        if isMultipart:
-            boundary = {'boundary': self.headers.get_boundary().encode(), "CONTENT-LENGTH": length}            
-            if path == "/enternewuser":
-                data = cgi.parse_multipart(self.rfile, boundary)
-                name = data["enternewuser"]
-                pwd = data["enternewpass"]
-                entry = {"name": name, "pwd": pwd}
-                inserted = entryQuery("insert", entry) #deal with front end warning depending on the boolean value, false means username already exists and cannot be duplicated
-                if inserted:
-                    sendRedirect(self,"/html/login.html")
-                else:
-                    response = "Username Is Taken"
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/plain")
-                    self.send_header("Content-Length", str(len(response)))
-                    self.send_header("X-Content-Type-Options", "nosniff")
-                    self.end_headers()
-                    self.wfile.write(response.encode())
-            elif path == "/loginuser":
-                data = cgi.parse_multipart(self.rfile, boundary)
-                name = data["loginusername"]
-                pwd = data["loginuserpass"]
-                entry = {"name": name, "pwd": pwd, "online": True}
-                exists = entryQuery("login", entry) #deal with front end warning depending on the boolean value, false means credentials dont exist or are wrong
-                if exists:                    
-                    sendRedirect(self, "/html/projects.html")
-                else:
-                    response = "Login Information Is Incorrect"
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/plain")
-                    self.send_header("Content-Length", str(len(response)))
-                    self.send_header("X-Content-Type-Options", "nosniff")
-                    self.end_headers()
-                    self.wfile.write(response.encode())
-            elif path == "/uploadproject": #parse manually for filename, add to database, redirect to project.html | associated filename with project index number, write file to directory (images/projectImages/filename)
-                fileData = self.rfile.read(length)
-                fileData = fileData.split(b'--' + self.headers.get_boundary().encode())
-                nameSection = fileData[1].split(b'\r\n\r\n')[1].strip(b'\r\n').decode()
-                descSection = fileData[2].split(b'\r\n\r\n')[1].strip(b'\r\n').decode()     
-                imageSection = fileData[3].split(b'\r\n\r\n')
-                imageName = imageSection[0].split(b'\r\n')[1].split(b'filename=')[1].strip(b'"').decode()
-                imageData = imageSection[1]
-                with open("images/projectImages/" + imageName, "wb") as imageFile:
-                    imageFile.write(imageData)
-                entry = {"name": nameSection, "desc": descSection, "img": imageName}
-                entryQuery("upload", entry)
-                sendRedirect(self, "/html/projects.html")
+        
 
                 
         
