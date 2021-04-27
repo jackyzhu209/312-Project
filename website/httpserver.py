@@ -39,7 +39,146 @@ def replaceFormat(project):
     projectLine = projectLine.replace('src="../images/test.png"', 'src="../images/projectImages/' + project["img"] + '"')
     return projectLine
 
+def serve_htmltext_and_goto(self, token, text, link, time):
+    if link != None:
+        text += '<meta http-equiv="refresh" content="'+str(time)+'; url='+link+'" />'
+    self.send_response(200)
+    self.send_header("Content-Type", "text/html")
+    self.send_header("X-Content-Type-Options", "nosniff")
+    if token != None:
+        self.send_header("Set-Cookie", "session-token=" + token + "; Max-Age=600")
+    self.send_header("Content-Length", str(len(text)))
+    self.end_headers()
+    self.wfile.write(text.encode())
+
+
+'''
+Open a file at filepath(string) in bytes, get the mimetype and then serve it.
+Return true if successful otherwise serve a 404 & return false.
+Checks files for various html template placeholders, replaces them with data if encountered
+Perform tasks specific to username(bytes) if it's not None
+Return True on success, else False
+'''
+def serve_file(self, filepath, username)->bool:
+    #queriedaccount example -> localhost:8000/html/profile.html?user=somename
+    queriedaccount = None
+    #session token is later retrieved and used to reset log out timer
+    token = None
+    if '?user=' in filepath:
+        queriedaccount = filepath.split('?user=')[1]
+        filepath = filepath.split('?user=')[0]
+        
+    #Open file, get content
+    try:
+        f = open(filepath, 'rb')
+    except:
+        self.give_404()
+        return False
+    b = f.read()
+    #Get mimetype, serve 403 if filetype not in mimetypes dictionary
+    mimetype = helper.get_mimetype(filepath)
+    if mimetype == None:
+        self.give_403()
+        return False
+    
+    #Show login status if username exists otherwise dont, and hide anything with the {{hideornot}} placeholder
+    if username != None:
+        b = b.replace(b'{{loggedin_temp}}', b'Currently logged in as: '+username)
+    else:
+        b = b.replace(b'{{loggedin_temp}}', b'')
+        b = b.replace(b'{{hideornot}}',b'hidden')
+        '''NOTE: can currently comment this^ line out for testing purposes, but final version would have that line active'''
+    
+    #If an account profile was not queried and the user is not logged in, hide certain frontend data
+    if queriedaccount == None and username == None:
+        b = b.replace(b'{{userbio}}',b'')
+        b = b.replace(b'{{hideifnotthisuser}}', b'hidden')
+
+    #else if a profile wasnt queried but a user name is supposedly logged in, make sure that account exists
+    #and refresh their session cookie and online status if so
+    elif queriedaccount == None and username != None:
+        #get queried account's bio and replace placeholder with it
+        retrieved_account = user_accounts.find_one({"account": username})
+        if retrieved_account == None:
+            self.serve_htmltext_and_goto(None,'<h1>That username does not exist. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/html/users.html', 5)
+            return
+        userbio = helper.gen_user_bio_html(username,retrieved_account['bio'])
+        b = b.replace(b'{{userbio}}',userbio)
+        #account login status refresh
+        token = retrieved_account['token']
+        account_to_refresh = online_users.find_one({"account": username})
+        account_to_refresh['date'] = datetime.utcnow()
+        online_users.save(account_to_refresh)
+
+    #if an account is queried(and exists), show their profile page and hide the bio updater form   
+    elif queriedaccount != None:
+        retrieved_account = user_accounts.find_one({"account": queriedaccount.encode()})
+        if retrieved_account == None:
+            self.serve_htmltext_and_goto(None,'<h1>That username does not exist. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/html/users.html', 5)
+            return
+        userbio = helper.gen_user_bio_html(queriedaccount.encode(),retrieved_account['bio'])
+        b = b.replace(b'{{userbio}}',userbio)
+        b = b.replace(b'{{hideifnotthisuser}}', b'hidden')
+    
+    #Get all html for submitted projects, insert if placeholder found
+    projectslist = b''
+    for project in projects_list:
+        projectslist += project     
+    b = b.replace(b'{{projectslist}}',projectslist)
+    
+    #Get all usernames in database, make the the html for the frontend, insert if placeholder found
+    alluserslist = b''
+    for item in user_accounts.find():
+        alluserslist += helper.gen_user_list_segment(item['account'])
+    b = b.replace(b'{{alluserslist}}', alluserslist)
+    
+    #Same as above but only for currently online users
+    onlineuserslist = b''
+    for item in online_users.find():
+        onlineuserslist += helper.gen_user_list_segment(item['account'])
+    b = b.replace(b'{{onlineuserslist}}', onlineuserslist)
+    
+    #Create appropriate response
+    self.send_response(200)
+    self.send_header('Content-Type', mimetype)
+    self.send_header('X-Content-Type-Options', 'nosniff')
+    self.send_header('')
+    #reset session cookie to another 10 minutes
+    if username != None and token != None:
+        self.send_header('Set-Cookie', 'session-token=' + token + '; Max-Age=600' )
+        
+    self.send_header('Content-Length', str(len(b)))
+    self.end_headers()
+    self.wfile.write(b)
+    
+    #Close file and send response
+    f.close()
+    return True
+
+
+# looks at token and gets username
+def get_username(self):
+    username = None
+
+    # get session token and check username
+    user_token = None
+    cookie = self.headers.get("Cookie")
+    if cookie != None:
+        cookies = helper.parse_cookies(cookie)
+        user_token = cookies.get("session-token", None)
+
+    if user_token != None:
+        retrieved_account = user_accounts.find_one({"token": user_token})
+        if retrieved_account != None:
+            username = retrieved_account['account'].replace('&','&amp').replace('<','&lt').replace('>','&gt')
+    
+    return username
+
 def pathLocation(path, self):
+    username = get_username(self)
+
+
+
     if path == '/':
         response = readFile("index.html", "str")
         self.send_response(200)
@@ -50,6 +189,7 @@ def pathLocation(path, self):
         self.wfile.write(response.encode())
 
     elif path.find(".html") != -1: #make conditional statement for project.html, helper function to look thru all entries in projects database and populate placeholder with such entries
+        
         response = readFile(path[1:], "str")
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
@@ -100,13 +240,16 @@ def sendRedirect(self, path):
     self.send_header("Location", path)
     self.end_headers()
 
-def give_403():
+
+
+
+def give_403(self):
     self.send_response(403)
     self.send_header("Content-Type", "text/plain")
     self.send_header("Content-Length", "20")
     self.end_headers()
     self.wfile.write(b"Error 403: Forbidden")
-def give_404():
+def give_404(self):
     self.send_response(404)
     self.send_header("Content-Type", "text/plain")
     self.send_header("Content-Length", "20")
