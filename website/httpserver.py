@@ -5,18 +5,21 @@ import pymongo
 import json
 import bcrypt
 import secrets
+import hashlib
 from datetime import datetime, timedelta
 import helperFunction as helper
 
 
 PORT = 8000
 HOST = "0.0.0.0"
-mongoclient = pymongo.MongoClient("mongo")
+localHost = "mongodb://localhost:27017"
+mongoclient = pymongo.MongoClient(localHost)
 storedUsers = mongoclient["users"]
 
 user_accounts = storedUsers["user_accounts"]
 projects = storedUsers["projects"]
 online_users = storedUsers["online"]
+new_online_user = storedUsers["timeout"]
 
 postFormat = '<div class="post"><hr>Project Name: Project1<b style="position:relative; left: 480px;">Rating: 7 <button style="background-color:green">&#x1F44D;</button><button style="background-color:red">&#x1F44E;</button></b><br><img src="../images/test.png" style="width:400px;height:200px;"><br>Description:<br>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.<br><br><small>By: User1</small></div>'
 
@@ -30,7 +33,8 @@ def readFile(filename, type):
 def loadProjects():
     DBprojects = []
     for project in projects.find():
-        DBprojects.append(project)
+        projectHTML = helper.gen_project_post_html_asbytes(project["account"], project["projectname"], project["projectdescription"], project["imagepath"], project["rating"])
+        DBprojects.append(projectHTML)
     return DBprojects
 
 def replaceFormat(project):
@@ -83,7 +87,7 @@ def serve_file(self, filepath, username)->bool:
     
     #Show login status if username exists otherwise dont, and hide anything with the {{hideornot}} placeholder
     if username != None:
-        b = b.replace(b'{{loggedin_temp}}', b'Currently logged in as: '+username)
+        b = b.replace(b'{{loggedin_temp}}', b'Currently logged in as: '+ username.encode())
     else:
         b = b.replace(b'{{loggedin_temp}}', b'')
         b = b.replace(b'{{hideornot}}',b'hidden')
@@ -100,12 +104,12 @@ def serve_file(self, filepath, username)->bool:
         #get queried account's bio and replace placeholder with it
         retrieved_account = user_accounts.find_one({"account": username})
         if retrieved_account == None:
-            self.serve_htmltext_and_goto(None,'<h1>That username does not exist. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/html/users.html', 5)
+            self.serve_htmltext_and_goto(self, None,'<h1>That username does not exist. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/html/users.html', 5)
             return
         userbio = helper.gen_user_bio_html(username,retrieved_account['bio'])
         b = b.replace(b'{{userbio}}',userbio)
         #account login status refresh
-        token = retrieved_account['token']
+        token = helper.parse_cookies(self.headers.get("Cookie")).get("session_token", None)
         account_to_refresh = online_users.find_one({"account": username})
         account_to_refresh['date'] = datetime.utcnow()
         online_users.save(account_to_refresh)
@@ -114,7 +118,7 @@ def serve_file(self, filepath, username)->bool:
     elif queriedaccount != None:
         retrieved_account = user_accounts.find_one({"account": queriedaccount.encode()})
         if retrieved_account == None:
-            self.serve_htmltext_and_goto(None,'<h1>That username does not exist. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/html/users.html', 5)
+            self.serve_htmltext_and_goto(self, None,'<h1>That username does not exist. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/html/users.html', 5)
             return
         userbio = helper.gen_user_bio_html(queriedaccount.encode(),retrieved_account['bio'])
         b = b.replace(b'{{userbio}}',userbio)
@@ -122,30 +126,29 @@ def serve_file(self, filepath, username)->bool:
     
     #Get all html for submitted projects, insert if placeholder found
     projectslist = b''
-    for project in projects_list:
+    for project in loadProjects():
         projectslist += project     
     b = b.replace(b'{{projectslist}}',projectslist)
     
     #Get all usernames in database, make the the html for the frontend, insert if placeholder found
     alluserslist = b''
     for item in user_accounts.find():
-        alluserslist += helper.gen_user_list_segment(item['account'])
+        alluserslist += helper.gen_user_list_segment(item['account'].encode())
     b = b.replace(b'{{alluserslist}}', alluserslist)
     
     #Same as above but only for currently online users
     onlineuserslist = b''
     for item in online_users.find():
-        onlineuserslist += helper.gen_user_list_segment(item['account'])
+        onlineuserslist += helper.gen_user_list_segment(item['account'].encode())
     b = b.replace(b'{{onlineuserslist}}', onlineuserslist)
     
     #Create appropriate response
     self.send_response(200)
     self.send_header('Content-Type', mimetype)
-    self.send_header('X-Content-Type-Options', 'nosniff')
-    self.send_header('')
+    self.send_header('X-Content-Type-Options', 'nosniff')    
     #reset session cookie to another 10 minutes
     if username != None and token != None:
-        self.send_header('Set-Cookie', 'session-token=' + token + '; Max-Age=600' )
+        self.send_header('Set-Cookie', 'session-token=' + token + '; Max-Age=600')
         
     self.send_header('Content-Length', str(len(b)))
     self.end_headers()
@@ -168,40 +171,23 @@ def get_username(self):
         user_token = cookies.get("session-token", None)
 
     if user_token != None:
-        retrieved_account = user_accounts.find_one({"token": user_token})
+        retrieved_account = user_accounts.find_one({"token": hashlib.sha256(user_token.encode()).hexdigest()})
         if retrieved_account != None:
             username = retrieved_account['account'].replace('&','&amp').replace('<','&lt').replace('>','&gt')
     
+    #loop through all instances and do bcrypt.checkpw on the retrieved token and the 
+
     return username
 
-def pathLocation(path, self):
-    username = get_username(self)
-
-
-
+def pathLocation(path, self):    
+    path = path.replace("%20", " ")
     if path == '/':
-        response = readFile("index.html", "str")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.send_header("Content-Length", str(len(response)))
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.end_headers()
-        self.wfile.write(response.encode())
+        username = get_username(self)
+        serve_file(self, './index.html', username)
 
     elif path.find(".html") != -1: #make conditional statement for project.html, helper function to look thru all entries in projects database and populate placeholder with such entries
-        
-        response = readFile(path[1:], "str")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.send_header("Content-Length", str(len(response)))
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.end_headers()
-        if path == "/html/projects.html":
-            for projects in loadProjects():
-                response = response.replace('<div class="projectlist">', '<div class="projectlist">' + replaceFormat(projects))
-            self.wfile.write(response.encode())
-        else:
-            self.wfile.write(response.encode())
+        username = get_username(self)
+        serve_file(self, './' + path[1:], username)
 
     elif path.find(".js") != -1:
         response = readFile(path[1:], "str")
@@ -259,77 +245,78 @@ def give_404(self):
 
 
 
-def postPathing(self, path, length, isMultipart, boundary):
+def postPathing(self, path, length, isMultipart):
     if isMultipart:
         boundary = {'boundary': self.headers.get_boundary().encode(), "CONTENT-LENGTH": length}            
         if path == "/enternewuser":
             data = cgi.parse_multipart(self.rfile, boundary)
-            name = data["enternewuser"]
-            pwd = data["enternewpass"]
-            repwd = data["confirmnewpass"]
+            name = data["enternewuser"][0]
+            pwd = data["enternewpass"][0]
+            rePwd = data["confirmnewpass"][0]
             entry = {"name": name, "pwd": pwd}
             # inserted = entryQuery("insert", entry) #deal with front end warning depending on the boolean value, false means username already exists and cannot be duplicated
 
             if pwd != rePwd:
-                self.serve_htmltext_and_goto(None,'<h1>The passwords do not match. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                serve_htmltext_and_goto(self,None,'<h1>The passwords do not match. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
                 return            
             if name == pwd:
-                self.serve_htmltext_and_goto(None,'<h1>You cant pick a password equal to your username. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                serve_htmltext_and_goto(self, None,'<h1>You cant pick a password equal to your username. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
                 return
             if user_accounts.find_one({"account": name}) != None:
                 name = name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
-                self.serve_htmltext_and_goto(None,'<h1>The account name ['+name+'] is already in use. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                serve_htmltext_and_goto(self, None,'<h1>The account name ['+name+'] is already in use. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
                 return
-            if len(pwd.decode()) < 8:
-                self.serve_htmltext_and_goto(None,'<h1>The password did not meet the required length(>=8). Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+            if len(pwd) < 8:
+                serve_htmltext_and_goto(self, None,'<h1>The password did not meet the required length(>=8). Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
                 return
             
             pass_salt = bcrypt.gensalt()
-            hashed_pass = bcrypt.hashpw(new_pass, pass_salt)
-            hashed_token =  bcrypt.hashpw(str(secrets.token_hex(16)).encode(), pass_salt)
+            hashed_pass = bcrypt.hashpw(pwd.encode(), pass_salt)            
             new_account = {
                     'account': name,                    
                     'pass'   : hashed_pass,
-                    'token'  : hashed_token,
+                    'token'  : bcrypt.hashpw(secrets.token_urlsafe(16).encode(), pass_salt),
                     'bio'    : 'Empty bio'
                 }
             user_accounts.insert_one(new_account)
             new_username = name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
-            self.serve_htmltext_and_goto(None,'<h1>Account created: '+new_username+'</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+            serve_htmltext_and_goto(self, None,'<h1>Account created: '+new_username+'</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
 
 
         elif path == "/loginuser":
             data = cgi.parse_multipart(self.rfile, boundary)
-            name = data["loginusername"]
-            pwd = data["loginuserpass"]
+            name = data["loginusername"][0]
+            pwd = data["loginuserpass"][0]
                         
-            retrieved_account = user_accounts.find_one({"account": login_username})
+            retrieved_account = user_accounts.find_one({"account": name})
             
             if retrieved_account == None:
                 name = name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
-                self.serve_htmltext_and_goto(None,'<h1>Login failed: The account['+login_username+'] does not exist. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                serve_htmltext_and_goto(self, None,'<h1>Login failed: The account['+name+'] does not exist. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
                 return
 
             retrieved_pass = retrieved_account['pass']
 
-            if not bcrypt.checkpw(pwd, retrieved_account):
+            if not bcrypt.checkpw(pwd.encode(), retrieved_pass):
                 login_username = name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
                 login_pass = pwd.replace('&','&amp').replace('<','&lt').replace('>','&gt')
-                self.serve_htmltext_and_goto(None,'<h1>Login failed: The password['+login_pass+'] is incorrect for the account['+login_username+']. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+                serve_htmltext_and_goto(self, None,'<h1>Login failed: The password['+pwd+'] is incorrect for the account['+pwd+']. Please try again.</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
                 return
 
-            retrieved_token = retrieved_account['token']
+            token = secrets.token_urlsafe(16)
+            tokenHashed = hashlib.sha256(token.encode()).hexdigest()
+            user_accounts.update({'account' : name}, {"$set": {'token': tokenHashed}})
 
             '''NOTE: Accounts stay logged in for up to 10 minutes of idle time, timer is reset upon any recieved request'''
             online_users.create_index("date", expireAfterSeconds=600)
             new_online_user = {
-                                    'account':login_username,
+                                    'account':name,
                                     'date':datetime.utcnow()
                                 }
             online_users.insert_one(new_online_user)
         
-            login_username = name.replace(b'&',b'&amp').replace(b'<',b'&lt').replace(b'>',b'&gt')
-            self.serve_htmltext_and_goto(retrieved_token,'<h1>You successfully logged in as: '+login_username+'</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
+            login_username = name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
+            serve_htmltext_and_goto(self, token,'<h1>You successfully logged in as: '+name+'</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
 
         elif path == "/uploadproject": #parse manually for filename, add to database, redirect to project.html | associated filename with project index number, write file to directory (images/projectImages/filename)
             fileData = self.rfile.read(length)
@@ -345,8 +332,8 @@ def postPathing(self, path, length, isMultipart, boundary):
 
             #Make sure user submitted an image, give a 403 error otherwise
             '''NOTE: currently image uploads only work properly with jpegs'''
-            if helper.get_mimetype(filename)[0:5] != b'image':
-                self.give_403()
+            if helper.get_mimetype(image_path)[0:5] != 'image':
+                give_403(self)
                 return
 
             # store image data in "images/projectImages/"
@@ -364,7 +351,7 @@ def postPathing(self, path, length, isMultipart, boundary):
                 user_token = cookies.get("session-token", None)
             
             if user_token != None:
-                retrieved_account = user_accounts.find_one({"token": user_token})
+                retrieved_account = user_accounts.find_one({"token": hashlib.sha256(user_token.encode()).hexdigest()})
                 if retrieved_account != None:
                     username = retrieved_account['account'].replace('&','&amp').replace('<','&lt').replace('>','&gt')
             
@@ -373,7 +360,7 @@ def postPathing(self, path, length, isMultipart, boundary):
                                 "account":username,
                                 "projectname":project_name,
                                 "projectdescription":project_description,
-                                "imagepath":image_path,
+                                "imagepath":"../" + image_path,
                                 "rating":'0'
                             }
             # add post to db
@@ -401,11 +388,11 @@ def postPathing(self, path, length, isMultipart, boundary):
                     retrieved_account['bio'] = newbio
                     user_accounts.save(retrieved_account)
                 else:
-                    self.give_403()
-            self.sendRedirect("html/profile.html")
+                    give_403()
+            sendRedirect("html/profile.html")
         
         else:
-            self.give_404
+            give_404
 
 
 
@@ -420,6 +407,7 @@ class server(http.server.SimpleHTTPRequestHandler):
         path = self.path
         length = int(self.headers.get("Content-Length"))
         isMultipart = True if "multipart/form-data" in self.headers.get("Content-Type") else False
+        postPathing(self, path, length, isMultipart)
         
 
                 

@@ -5,6 +5,7 @@ WORKDIR /root
 
 COPY . .
 RUN pip install pymongo
+RUN pip install bcrypt
 # RUN pip install -r requirements.txt
 
 
