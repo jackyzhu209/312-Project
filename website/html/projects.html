@@ -21,13 +21,25 @@
         <button class="tablinks" onclick="location.href='../html/about.html'">About</button>
         <button {{hideornot}} class="tablinks" onclick="location.href='../html/profile.html'">My Profile</button>
     </div>
-
+    
     <div class="projectlist">
-        {{projectslist}}
-        <!--
-        <div class="post"><hr>Project Name: Project1<b style="position:relative; left: 480px;">Rating: 7 <button style="background-color:green">&#x1F44D;</button><button style="background-color:red">&#x1F44E;</button></b><br><img src="../images/test.png" style="width:400px;height:200px;"><br>Description:<br>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.<br><br><small>By: User1</small></div>
-        -->
-        
+
+        <div class="post">
+            <hr>Project Name: {{project_name}}
+            <br>
+            <img src="../images/test.png" style="width:400px;height:200px;">
+
+            <div class="vote arrow">
+                <div onmouseover= "incrementVote()" class="increment up" type="increment"></div>
+                <div onmouseover= "decrementVote()" class="decrement down" type="decrement"></div>
+                <div class="count">0</div>
+            </div>
+
+            <br>
+            Description: {{project_description}}
+            <br><br>
+            <small>By: User1</small>
+        </div>
         <hr>
     </div>
     
