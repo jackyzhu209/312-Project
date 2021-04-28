@@ -6,3 +6,31 @@ function openChat(user_id) {
 function closeChat() {
 	document.getElementById("dmBox").style.display = "none";
 }
+
+function incrementVote() {
+	document.getElementById("increment").click();
+	var count = parseInt($(".count", this).text());
+
+	if(this.hasClass("up")) {
+		var count = count + 1;
+		
+		(".count", this).text(count);     
+	} else {
+		var count = count - 1;
+		(".count", this).text(count);     
+	}
+}
+
+function decrementVote() {
+	document.getElementById("increment").click();
+	var count = parseInt($("~ .count", this).text());
+
+	if(this.hasClass("up")) {
+		var count = count + 1;
+		
+		(".count", this).text(count);     
+	} else {
+		var count = count - 1;
+		(".count", this).text(count);     
+	}
+}
