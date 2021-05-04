@@ -10,6 +10,7 @@
         <center><img src="../images/logo.png" align="bottom" style="width:400px;height:200px;"> </center>
     </a>
     <b style="position:relative; left: 10px;">{{loggedin_temp}}</b>
+    <div id="current_user"hidden>{{username_placeholder}}</div>
     <!--Tab links-->
     <hr>
     <div class="tab">
@@ -19,6 +20,7 @@
         <button class="tablinks" onclick="location.href='../html/users.html'">Users</button>
         <button class="tablinks" onclick="location.href='../html/about.html'">About</button>
         <button {{hideornot}} class="tablinks" onclick="location.href='../html/profile.html'">My Profile</button>
+        <button {{hideornot}} class="tablinks" onclick="location.href='/logout'">Logout</button>
     </div>
     
     <div class=allmembers>
@@ -35,19 +37,17 @@
         </ul>  
     </div>
     
-    
     <div class="chat-popup" id="dmBox">
       <div class="chat-box">
         <div id="chatTarget">Chat@Placeholder</div>
         <label for="messages"><b>Messages</b></label>
-        <textarea readonly name="messages"></textarea>
-        <input id="enter-dm-msg" type="text" placeholder="Enter Message" name="outgoingchat" required>
-        <button onclick="sendDM()">Send</button>
+        <div contenteditable="false" name="messages" id="chat" class="chat-area"></div>
+        <input id="chat-comment" type="text" placeholder="Enter Message" name="outgoingchat" required>
+        <button onclick="sendMessage()">Send</button>
         <button onclick="closeChat()">Close</button>
       </div>
     </div>
 
-    
     <hr>
     <!--scripts-->
     <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>-->

@@ -6,9 +6,21 @@ import json
 import bcrypt
 import secrets
 import hashlib
+import base64
 from datetime import datetime, timedelta
 import helperFunction as helper
 
+SOCKET_GUID = b'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
+TEXT_FRAME = 1
+OPCODE_MASK = 0b00001111
+PAYLOAD_LEN_MASK = 0b01111111
+FIRST_BYTE_TEXT_FRAME = b'\x81'
+SECOND_BYTE_LEN126 = b'\x7E'
+SECOND_BYTE_LEN127 = b'\x7F'
+FRAME_LEN_NO_METADATA = 1010
+
+
+projects_list = []
 
 PORT = 8000
 HOST = "0.0.0.0"
@@ -19,7 +31,7 @@ storedUsers = mongoclient["users"]
 user_accounts = storedUsers["user_accounts"]
 projects = storedUsers["projects"]
 online_users = storedUsers["online"]
-new_online_user = storedUsers["timeout"]
+#new_online_user = storedUsers["timeout"]
 
 postFormat = '<div class="post"><hr>Project Name: Project1<b style="position:relative; left: 480px;">Rating: 7 <button style="background-color:green">&#x1F44D;</button><button style="background-color:red">&#x1F44E;</button></b><br><img src="../images/test.png" style="width:400px;height:200px;"><br>Description:<br>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.<br><br><small>By: User1</small></div>'
 
@@ -76,18 +88,36 @@ def serve_file(self, filepath, username)->bool:
     try:
         f = open(filepath, 'rb')
     except:
-        self.give_404()
+        give_404()
         return False
     b = f.read()
     #Get mimetype, serve 403 if filetype not in mimetypes dictionary
     mimetype = helper.get_mimetype(filepath)
     if mimetype == None:
-        self.give_403()
+        give_403()
         return False
     
+    projectslist = b''
+    for project in projects_list:
+        projectslist += project     
+    b = b.replace(b'{{projectslist}}',projectslist)
+    
+    #Get all usernames in database, make the the html for the frontend, insert if placeholder found
+    alluserslist = b''
+    for item in user_accounts.find():
+        alluserslist += helper.gen_user_list_segment(item['account'].encode())
+    b = b.replace(b'{{alluserslist}}', alluserslist)
+    
+    #Same as above but only for currently online users
+    onlineuserslist = b''
+    for item in online_users.find():
+        onlineuserslist += helper.gen_user_list_segment(item['account'].encode())
+    b = b.replace(b'{{onlineuserslist}}', onlineuserslist)
+
     #Show login status if username exists otherwise dont, and hide anything with the {{hideornot}} placeholder
     if username != None:
         b = b.replace(b'{{loggedin_temp}}', b'Currently logged in as: '+ username.encode())
+        b = b.replace(b'{{username_placeholder}}', username.encode())
     else:
         b = b.replace(b'{{loggedin_temp}}', b'')
         b = b.replace(b'{{hideornot}}',b'hidden')
@@ -124,23 +154,6 @@ def serve_file(self, filepath, username)->bool:
         b = b.replace(b'{{userbio}}',userbio)
         b = b.replace(b'{{hideifnotthisuser}}', b'hidden')
     
-    #Get all html for submitted projects, insert if placeholder found
-    projectslist = b''
-    for project in loadProjects():
-        projectslist += project     
-    b = b.replace(b'{{projectslist}}',projectslist)
-    
-    #Get all usernames in database, make the the html for the frontend, insert if placeholder found
-    alluserslist = b''
-    for item in user_accounts.find():
-        alluserslist += helper.gen_user_list_segment(item['account'].encode())
-    b = b.replace(b'{{alluserslist}}', alluserslist)
-    
-    #Same as above but only for currently online users
-    onlineuserslist = b''
-    for item in online_users.find():
-        onlineuserslist += helper.gen_user_list_segment(item['account'].encode())
-    b = b.replace(b'{{onlineuserslist}}', onlineuserslist)
     
     #Create appropriate response
     self.send_response(200)
@@ -179,6 +192,125 @@ def get_username(self):
 
     return username
 
+def handleSocket(self):
+    socket_key = self.headers.get("Sec-WebSocket-Key").encode() + SOCKET_GUID
+    base64_socket_key = base64.b64encode(hashlib.sha1(socket_key).digest())
+    
+    response = b'HTTP/1.1 101 Switching Protocols\r\n'
+    response += b'Connection: Upgrade\r\n'
+    response += b'Upgrade: websocket\r\n'
+    response += b'Sec-WebSocket-Accept: ' + base64_socket_key + b'\r\n\r\n'
+    self.request.sendall(response)
+
+    self.active_sockets.append(self.request)
+    socket_data = b' '
+    while socket_data:
+        #Try receiving data, break loop on any exception
+        try:
+            socket_data = self.request.recv(1024)
+        except:
+            break
+        
+        #Get the opcode
+        opcode = None
+        if socket_data:
+            opcode = socket_data[0] & OPCODE_MASK
+        
+        #if its a text frame(do nothing otherwise)
+        if opcode == TEXT_FRAME:
+            #get payload length
+            payload_len = socket_data[1] & PAYLOAD_LEN_MASK
+            
+            #Self explanatory: get data from the packets as defined for the three payload sizes
+            if payload_len < 126:
+                masking_key = socket_data[2:6]
+                payload_data = socket_data[6:(6 + payload_len)]
+                
+            elif payload_len == 126:
+                payload_len = int.from_bytes(socket_data[2:4], byteorder='big', signed=False)
+                masking_key = socket_data[4:8]
+                if (FRAME_LEN_NO_METADATA - payload_len) < 0:
+                    socket_data += self.request.recv(65536)
+                payload_data = socket_data[8:(8 + payload_len)]
+                
+            elif payload_len == 127:
+                payload_len = int.from_bytes(socket_data[2:10], byteorder='big', signed=False)
+                masking_key = socket_data[10:14]
+                socket_data += self.request.recv(payload_len)
+                payload_data = socket_data[14:(14 + payload_len)]
+            
+            #Decode payload with the masking key
+            decoded_payload = b''
+            for idx, byte in enumerate(payload_data):
+                decoded_payload += (byte ^ masking_key[idx % 4]).to_bytes(1, byteorder='big', signed=False)
+                
+            #Remove html from payload
+            decoded_payload = decoded_payload.replace(b'&',b'&amp').replace(b'<',b'&lt').replace(b'>',b'&gt')
+            
+            #Start the outgoing payload
+            outgoing_payload = None
+            #if websocket was used to rate project
+            if b'"projectname"' in decoded_payload:
+                #Extract project name and the value to be added to the rating (1 or -1)
+                project_name = helper.extract_segment(decoded_payload, b'"projectname":"',b'","addedvalue"')
+                added_value = int(helper.extract_segment(decoded_payload, b'"addedvalue":',b'}').decode())
+                
+                #Get the project by name and update it with a +1 or -1
+                project_to_rate = projects.find_one({"projectname": project_name.decode()}) #change this
+                project_to_rate['rating'] = new_rating = str(int(project_to_rate['rating']) + added_value)
+                projects.save(project_to_rate)
+                
+                #Refresh the projects_list list
+                projects_list.clear()
+                for item in projects.find():
+                    formatted_project_post_html = helper.gen_project_post_html_asbytes(item['account'], item['projectname'], item['projectdescription'], item['imagepath'], item['rating'])
+                    projects_list.append(formatted_project_post_html)
+                
+                #Set up outgoing payload for project rating
+                outgoing_payload = b'{"projectname":"'+project_name+b'","updatedvalue":'+new_rating.encode()+b'}'
+            
+            #else if websocket was used to send message
+            elif b'"chatmessage"' in decoded_payload:
+                #Extract the various data
+                msg_sender = None
+                sender_token = helper.extract_segment(decoded_payload, b'"sender":"',b'","recipient"')
+                msg_recipient = helper.extract_segment(decoded_payload, b'"recipient":"',b'","chatmessage"')
+                chat_message = helper.extract_segment(decoded_payload, b'"chatmessage":"',b'"}')
+                
+                #Fine the account this message was sent from based on the token given
+                #if no account was found give them the name "Anonymous" THOUGH this shouldnt ever occur
+                retrieved_account = user_accounts.find_one({"token": sender_token})
+                if retrieved_account != None:
+                    msg_sender = retrieved_account['account'].encode()
+                else:
+                    msg_sender = b'Anonymous'
+                
+                #set up outgoing payload for a message
+                outgoing_payload = b'{"sender":"'+msg_sender+b'","recipient":"'+msg_recipient+b'","chatmessage":"'+chat_message+b'"}'
+            
+            #Set up outgoing frame as required for different sized payloads
+            payload_len = len(outgoing_payload)
+            outgoing_frame = FIRST_BYTE_TEXT_FRAME
+            if payload_len < 126:
+                outgoing_frame += payload_len.to_bytes(1, byteorder='big', signed=False)
+                
+            elif payload_len >= 65536:
+                outgoing_frame += SECOND_BYTE_LEN127
+                outgoing_frame += payload_len.to_bytes(8, byteorder='big', signed=False)
+                
+            elif payload_len >= 126:
+                outgoing_frame += SECOND_BYTE_LEN126
+                outgoing_frame += payload_len.to_bytes(2, byteorder='big', signed=False)
+            outgoing_frame += outgoing_payload
+            
+            #Send outgoing frame to all connected sockets(includes itself)
+            for socket in self.active_sockets:
+                socket.sendall(outgoing_frame)
+                
+    #remove this socket on socket close           
+    self.active_sockets.remove(self.request)
+
+
 def pathLocation(path, self):    
     path = path.replace("%20", " ")
     if path == '/':
@@ -208,7 +340,10 @@ def pathLocation(path, self):
         self.wfile.write(response.encode())
         
     elif path.find("/images/") != -1:
-        response = readFile(path[1:], "bytes")
+        if path[1:5] == "html":
+            response = readFile(path[6:], "bytes")
+        else:
+            response = readFile(path[1:], "bytes")
         imageType = path.split(".")[1]
         self.send_response(200)
         self.send_header("Content-Type", "image/" + imageType)
@@ -216,7 +351,8 @@ def pathLocation(path, self):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(response)
-
+    elif path == "/websocket":
+        handleSocket(self)
     else:
         self.send_response(404)
         self.end_headers()
@@ -366,6 +502,11 @@ def postPathing(self, path, length, isMultipart):
             # add post to db
             projects.insert_one(project_post)
 
+            formatted_project_post_html = helper.gen_project_post_html_asbytes(username, project_name, project_description, image_path, '0')
+                
+            #Add this html to the projects_list list
+            projects_list.append(formatted_project_post_html)
+
             sendRedirect(self, "/html/projects.html")
 
         elif path == "/updatebio":
@@ -397,6 +538,7 @@ def postPathing(self, path, length, isMultipart):
 
 
 class server(http.server.SimpleHTTPRequestHandler):
+    active_sockets = []
     def do_GET(self):
         path = self.path
         response = pathLocation(path, self)

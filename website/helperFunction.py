@@ -160,7 +160,9 @@ def serve_file(self, filepath, username)->bool:
 #generates the project post html given the parameters
 def gen_project_post_html_asbytes(user_name, project_name, project_description, image_path, rating)->bytes:
     html = b'<div class="post"><hr>Project Name: '
-    html += project_name.encode() + b'<b style="position:relative; left: 480px;">Rating: '+rating.encode()+b' <button style="background-color:green">&#x1F44D;</button><button style="background-color:red">&#x1F44E;</button></b><br>'
+    html += project_name.encode() + b'<b style="position:relative; left: 480px;"><div id="'+project_name.encode()+b'">Rating: '+rating.encode()+b'</div> <button onclick="rateProject(1,'
+    html += b'\''+project_name.encode()+b'\')" style="background-color:green">&#x1F44D;</button><button onclick="rateProject(-1,'
+    html += b'\''+project_name.encode()+b'\')" style="background-color:red">&#x1F44E;</button></b><br>'
     html += b'<img src="'+image_path.encode()+b'" style="width:400px;height:200px;"><br>'
     html += b'Description:<br>'+project_description.encode()
     html += b'<br><br><small>By: '+user_name.encode()+b'</small></div>'
@@ -175,3 +177,6 @@ def gen_user_list_segment(username)->bytes:
 def gen_user_bio_html(username, text)->bytes:
     html = b'<p>'+username.encode()+b's bio:<br>'+text.encode()+b'</p>'
     return html
+
+def extract_segment(bytestream, left_delim, right_delim)->bytes:
+    return bytestream.split(left_delim,1)[1].split(right_delim,1)[0]

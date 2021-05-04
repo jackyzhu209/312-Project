@@ -98,84 +98,21 @@ a:active {
 
 /* Projects page divs */
 .projectuploader {
-  position: absolute;
-  left: 900px;
-  bottom: 105px;
+  position: relative;
+  left: 850px;
+  bottom: 400px;
 }
 
 .projectlist {
+  position: relative;
+  top: 10px;
   background-color: lightblue;
   height: 420px;
   width: 800px;
   overflow-y: scroll;
-  position: absolute;
-  bottom: -80px;
   border: 1px solid #000000;
 }
 /* End of project page divs */
-.arrow {
-  border-width: 0 5px 5px 0;
-  display: inline-block;
-  padding: 5px;
-  transform: rotate(-135deg);
-  -webkit-transform: rotate(135deg);
-}
-
-.vote {
-    display: flex;
-    flex-direction: column;
-    font-family: "Noto Sans";
-    position: relative;
-    width: 10rem;
-    height: 10rem;
-    margin: 1rem;
-}  
-
-.arrow-up { 
-  border: solid green;
-}
-.arrow-down { 
-  border: solid red;
-}
-
-.increment {
-  flex: 1 0 0;
-  text-align: center;
-  opacity: 0.5;
-  transition: 0.3s;
-  cursor: pointer;
-}
-
-.increment.up {
-  background: #4bc35f;
-  height: 50%;
-  margin-bottom: 0.5rem/2;
-}
-
-.increment.down {
-  background: #c15044;
-  height: 50%;
-}
-
-.count {
-  position: absolute;
-  top: 0;
-  border-radius: 1rem * 0.1;
-  margin: 10rem * 0.25;
-  background: #f6f3e4;
-  width: 10rem * 0.5;
-  font-size: 10rem * 0.25;
-  font-weight: bold;
-  line-height: 10rem * 0.5;
-  text-align: center;
-  box-shadow: 0 0 0 0.5rem #f6f3e4;
-  pointer-events: none;
-}
-
-.bump {
-  animation: bump 200ms;
-}
-
 
 /* Users page stuff */
 .membersonline {
@@ -226,6 +163,13 @@ a:active {
   max-width: 300px;
   padding: 10px;
   background-color: white;
+}
+
+.chat-area {
+  height: 200px;
+  width: 100%;
+  overflow-y: scroll;
+  background-color: #EEEEEE;
 }
 
 .chat-box textarea {
