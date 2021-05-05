@@ -202,7 +202,12 @@ def handleSocket(self):
     response += b'Sec-WebSocket-Accept: ' + base64_socket_key + b'\r\n\r\n'
     self.request.sendall(response)
 
+    # keep track of sockets
     self.active_sockets.append(self.request)
+    account_name = get_username(self)
+    if account_name != None:
+        self.dm_sockets[account_name] = self.request
+
     socket_data = b' '
     while socket_data:
         #Try receiving data, break loop on any exception
@@ -217,7 +222,8 @@ def handleSocket(self):
             opcode = socket_data[0] & OPCODE_MASK
         
         #if its a text frame(do nothing otherwise)
-        if opcode == TEXT_FRAME:
+        if opcode == TEXT_FRAME and account_name != None:
+            msg_type = None
             #get payload length
             payload_len = socket_data[1] & PAYLOAD_LEN_MASK
             
@@ -251,6 +257,8 @@ def handleSocket(self):
             outgoing_payload = None
             #if websocket was used to rate project
             if b'"projectname"' in decoded_payload:
+                msg_type = "rating"
+
                 #Extract project name and the value to be added to the rating (1 or -1)
                 project_name = helper.extract_segment(decoded_payload, b'"projectname":"',b'","addedvalue"')
                 added_value = int(helper.extract_segment(decoded_payload, b'"addedvalue":',b'}').decode())
@@ -271,6 +279,7 @@ def handleSocket(self):
             
             #else if websocket was used to send message
             elif b'"chatmessage"' in decoded_payload:
+                msg_type = "dm"
                 #Extract the various data
                 msg_sender = None
                 sender_token = helper.extract_segment(decoded_payload, b'"sender":"',b'","recipient"')
@@ -303,12 +312,20 @@ def handleSocket(self):
                 outgoing_frame += payload_len.to_bytes(2, byteorder='big', signed=False)
             outgoing_frame += outgoing_payload
             
-            #Send outgoing frame to all connected sockets(includes itself)
-            for socket in self.active_sockets:
-                socket.sendall(outgoing_frame)
-                
+            if msg_type == "rating":
+                #Send outgoing frame to all connected sockets(includes itself)
+                for socket in self.active_sockets:
+                    socket.sendall(outgoing_frame)
+            elif msg_type == "dm":
+                #Send dms only to the sockets for the two members, and only bother if they're online
+                if msg_sender in self.dm_sockets:
+                    self.dm_sockets[msg_sender].sendall(outgoing_frame)
+                if msg_recipient in self.dm_sockets and msg_sender != msg_recipient:
+                    self.dm_sockets[msg_recipient].sendall(outgoing_frame)
+                            
     #remove this socket on socket close           
-    self.active_sockets.remove(self.request)
+    self.active_sockets.remove(self.request)        
+    self.dm_sockets.pop(account_name, None)
 
 
 def pathLocation(path, self):    
@@ -361,9 +378,6 @@ def sendRedirect(self, path):
     self.send_response(301)
     self.send_header("Location", path)
     self.end_headers()
-
-
-
 
 def give_403(self):
     self.send_response(403)
@@ -418,7 +432,6 @@ def postPathing(self, path, length, isMultipart):
             new_username = name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
             serve_htmltext_and_goto(self, None,'<h1>Account created: '+new_username+'</h1><br><h2>Returning in 5 seconds...</h2>', '/', 5)
 
-
         elif path == "/loginuser":
             data = cgi.parse_multipart(self.rfile, boundary)
             name = data["loginusername"][0]
@@ -459,7 +472,9 @@ def postPathing(self, path, length, isMultipart):
             fileData = fileData.split(b'--' + self.headers.get_boundary().encode())
             
             project_name = fileData[1].split(b'\r\n\r\n')[1].strip(b'\r\n').decode()
+            project_name = project_name.replace('&','&amp').replace('<','&lt').replace('>','&gt')
             project_description = fileData[2].split(b'\r\n\r\n')[1].strip(b'\r\n').decode()
+            project_description = project_description.replace('&','&amp').replace('<','&lt').replace('>','&gt')
             
             imageSection = fileData[3].split(b'\r\n\r\n')
             image_path = imageSection[0].split(b'\r\n')[1].split(b'filename=')[1].strip(b'"').decode()
@@ -539,6 +554,7 @@ def postPathing(self, path, length, isMultipart):
 
 class server(http.server.SimpleHTTPRequestHandler):
     active_sockets = []
+    dm_sockets = {}
     def do_GET(self):
         path = self.path
         response = pathLocation(path, self)

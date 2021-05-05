@@ -11,14 +11,15 @@ function sendMessage() {
    const chatBox = document.getElementById("chat-comment");
    const chatSender = getCurrentSessionToken()
    const comment = chatBox.value;
+   this_user = document.getElementById("current_user").innerHTML;
    chatBox.value = "";
    chatBox.focus();
    if(comment !== "") {
-       socket.send(JSON.stringify({'sender':chatSender,'recipient':chatTarget,'chatmessage':comment}));
+      socket.send(JSON.stringify({'sender':chatSender,'recipient':chatTarget,'chatmessage':comment}));
    }
 }
 
-//Rate a project up one or down one point
+//Rate a project up one or down one point, useless unless logged in
 function rateProject(value, projectname) {
 	socket.send(JSON.stringify({'projectname': projectname, 'addedvalue': value}));
 }
@@ -31,11 +32,16 @@ function evaluateData(message) {
 
    //If it was used to rate a project
    if(socketData['projectname'] != null){
-	   editted_rating = document.getElementById(socketData['projectname']);
+      projectname = socketData['projectname'];
+      if(projectname.includes("&lt;/")){
+         //this is done to account for some weird error that happens when someone used html in their project name
+         projectname = projectname.replaceAll("&lt;","<").replaceAll("&gt;",">").replaceAll("&amp;","&");
+      }
+	   editted_rating = document.getElementById(projectname);
 	   editted_rating.innerHTML =  "Rating: " + socketData['updatedvalue']
    }
    //if a message was sent/received
-   //Creates a div containing the message. Clickign the message allows you to @ that user(only @'d users see your message)
+   //Creates a div containing the message. Clicking the message allows you to @ that user(only @'d users see your message)
    else if(socketData['chatmessage'] != null){
    		//Sent
 	   	this_user = document.getElementById("current_user").innerHTML;
