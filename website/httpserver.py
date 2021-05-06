@@ -24,7 +24,7 @@ projects_list = []
 
 PORT = 8000
 HOST = "0.0.0.0"
-localHost = "mongodb://localhost:27017"
+localHost = "mongo"
 mongoclient = pymongo.MongoClient(localHost)
 storedUsers = mongoclient["users"]
 
