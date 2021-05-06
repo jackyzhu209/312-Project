@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 #Simple mapping of file extensions to html content types(as bytes)
 mimetypes = {
     'txt'  : 'text/plain; charset=utf-8',
@@ -40,6 +41,18 @@ def serve_htmltext_and_goto(self, token, text, link, time):
         self.send_header("X-Content-Type-Options", "nosniff")
         if token != None:
             self.send_header("Set-Cookie", "session-token=" + token + "; Max-Age=600")
+        self.send_header("Content-Length", str(len(text)))
+        self.end_headers()
+        self.wfile.write(text.encode())
+
+def logout(self, token, text, link, time):
+        if link != None:
+            text += '<meta http-equiv="refresh" content="'+str(time)+'; url='+link+'" />'
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if token != None:
+            self.send_header("Set-Cookie", "session-token=deleted; path=/; expires=" + str(datetime.utcnow()) + "Max-Age=-1")
         self.send_header("Content-Length", str(len(text)))
         self.end_headers()
         self.wfile.write(text.encode())

@@ -88,13 +88,13 @@ def serve_file(self, filepath, username)->bool:
     try:
         f = open(filepath, 'rb')
     except:
-        give_404()
+        give_404(self)
         return False
     b = f.read()
     #Get mimetype, serve 403 if filetype not in mimetypes dictionary
     mimetype = helper.get_mimetype(filepath)
     if mimetype == None:
-        give_403()
+        give_403(self)
         return False
     
     projectslist = b''
@@ -139,7 +139,7 @@ def serve_file(self, filepath, username)->bool:
         userbio = helper.gen_user_bio_html(username,retrieved_account['bio'])
         b = b.replace(b'{{userbio}}',userbio)
         #account login status refresh
-        token = helper.parse_cookies(self.headers.get("Cookie")).get("session_token", None)
+        token = helper.parse_cookies(self.headers.get("Cookie")).get("session-token", None)
         account_to_refresh = online_users.find_one({"account": username})
         account_to_refresh['date'] = datetime.utcnow()
         online_users.save(account_to_refresh)
@@ -367,6 +367,10 @@ def pathLocation(path, self):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(response)
+    elif path == "/logout":
+        if get_username(self) != None:
+            online_users.delete_many({"account" : get_username(self)})
+        helper.logout(self, helper.parse_cookies(self.headers.get("Cookie")).get("session-token", None),'<h1>You have logged out.</h1><br><h2>Returning in 3 seconds...</h2>', '/', 3)
     elif path == "/websocket":
         handleSocket(self)
     else:
@@ -547,7 +551,7 @@ def postPathing(self, path, length, isMultipart):
             sendRedirect(self, "html/profile.html")
         
         else:
-            give_404
+            give_404(self)
 
 
 
