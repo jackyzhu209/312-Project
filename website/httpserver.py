@@ -288,11 +288,10 @@ def handleSocket(self):
                 
                 #Fine the account this message was sent from based on the token given
                 #if no account was found give them the name "Anonymous" THOUGH this shouldnt ever occur
-                retrieved_account = user_accounts.find_one({"token": sender_token})
+                msg_sender = b'Anonymous'
+                retrieved_account = user_accounts.find_one({"token": hashlib.sha256(sender_token).hexdigest()})
                 if retrieved_account != None:
                     msg_sender = retrieved_account['account'].encode()
-                else:
-                    msg_sender = b'Anonymous'
                 
                 #set up outgoing payload for a message
                 outgoing_payload = b'{"sender":"'+msg_sender+b'","recipient":"'+msg_recipient+b'","chatmessage":"'+chat_message+b'"}'
@@ -318,10 +317,10 @@ def handleSocket(self):
                     socket.sendall(outgoing_frame)
             elif msg_type == "dm":
                 #Send dms only to the sockets for the two members, and only bother if they're online
-                if msg_sender in self.dm_sockets:
-                    self.dm_sockets[msg_sender].sendall(outgoing_frame)
-                if msg_recipient in self.dm_sockets and msg_sender != msg_recipient:
-                    self.dm_sockets[msg_recipient].sendall(outgoing_frame)
+                if msg_sender.decode() in self.dm_sockets:
+                    self.dm_sockets[msg_sender.decode()].sendall(outgoing_frame)
+                if msg_recipient.decode() in self.dm_sockets and msg_sender != msg_recipient:
+                    self.dm_sockets[msg_recipient.decode()].sendall(outgoing_frame)
                             
     #remove this socket on socket close           
     self.active_sockets.remove(self.request)        
@@ -527,7 +526,7 @@ def postPathing(self, path, length, isMultipart):
         elif path == "/updatebio":
             data = cgi.parse_multipart(self.rfile, boundary)
             # get bio text
-            newbio = data["biotext"]
+            newbio = data["biotext"][0]
 
             #Get all cookies into a list, extract the session token cookie if present
             '''NOTE: Currently there is only one cookie, the session token one'''
@@ -539,13 +538,13 @@ def postPathing(self, path, length, isMultipart):
                 user_token = cookies.get("session-token", None)
             
             if user_token != None:
-                retrieved_account = user_accounts.find_one({"token": user_token})
+                retrieved_account = user_accounts.find_one({"token": hashlib.sha256(user_token.encode()).hexdigest()})
                 if retrieved_account != None:
                     retrieved_account['bio'] = newbio
                     user_accounts.save(retrieved_account)
                 else:
-                    give_403()
-            sendRedirect("html/profile.html")
+                    give_403(self)
+            sendRedirect(self, "html/profile.html")
         
         else:
             give_404
