@@ -530,7 +530,7 @@ def postPathing(self, path, length, isMultipart):
         elif path == "/updatebio":
             data = cgi.parse_multipart(self.rfile, boundary)
             # get bio text
-            newbio = data["biotext"][0]
+            newbio = data["biotext"][0].replace('&','&amp').replace('<','&lt').replace('>','&gt')
 
             #Get all cookies into a list, extract the session token cookie if present
             '''NOTE: Currently there is only one cookie, the session token one'''
