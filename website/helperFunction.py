@@ -84,7 +84,7 @@ def gen_project_post_html_asbytes(user_name, project_name, project_description, 
 
 #Used to generate html bytes for the frontend users lists nodes, also allows clicking user name to see their profile
 def gen_user_list_segment(username)->bytes:
-    html = b'<li><a href="./profile.html?user='+username+b'">'+username+b'</a><button id="'+username+b'" class="messagebutton" onclick="openChat(this.id)">Message</button></li>'
+    html = b'<li><a href="./profile.html?user='+username+b'">'+username+b'</a><button {{hideornot}} id="'+username+b'" class="messagebutton" onclick="openChat(this.id)">Message</button></li>'
     return html
 
 #Gen html as bytes for user bio
